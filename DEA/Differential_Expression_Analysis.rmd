@@ -1,0 +1,211 @@
+# Source functions
+```{r}
+source('functions.R')
+```
+
+# Store metadata 
+```{r}
+ifnb_study <- getGEO('GSE206478', GSEMatrix = TRUE)
+ifnb_study <- ifnb_study[[1]]
+ifnb_metadata <- get_metdata('GSE206478', TRUE, 1)
+```
+
+# Get count matrix
+```{r}
+ifnb_count_matrix <- get_count_matrix('../IFNB_study/GSE206478_raw_counts_GRCh38.p13_NCBI.tsv', colname = 'GeneID')
+```
+
+
+# Include only wanted rows/samples from metadata
+```{r}
+#IFNB Study, WTC11-derived microglia
+ifnb_filtered_metadata_WTC11 <- filter_metadata(ifnb_metadata,'title','group:ch1',n=4)
+ifnb_filtered_metadata_WTC11 <- ifnb_filtered_metadata_WTC11[!row.names(ifnb_filtered_metadata_WTC11) %in% "GSM6255119", ]
+```
+```{r}
+#IFNB Study, H1-derived microglia
+ifnb_filtered_metadata_H1 <- filter_metadata(ifnb_metadata,'title','group:ch1',n=4, filter_type='tail')
+```
+
+
+# Include only wanted columns/samples from count matrix
+```{r}
+#IFNB study 
+ifnb_filtered_count_matrix_WTC11 <- filter_non_zero(ifnb_count_matrix,n=2,start=1,end=3)
+ifnb_filtered_count_matrix_H1 <- filter_non_zero(ifnb_count_matrix,n=2,start=4,end=7)
+```
+
+
+# Run DESEq2 and get results
+```{r}
+WTC11_results <- deseq_results(ifnb_filtered_metadata_WTC11, ifnb_filtered_count_matrix_WTC11, 'condition', 'control')
+H1_results <- deseq_results(ifnb_filtered_metadata_H1, ifnb_filtered_count_matrix_H1, 'condition', 'control')
+```
+
+
+# Convert NCBI to HGNC symbols and plto volcano plot
+```{r}
+WTC11_results_HGNC <- convert_ncbi_to_hgnc(WTC11_results)
+```
+```{r}
+WTC11_volcano_plot <- create_volcano_plot(WTC11_results_HGNC, title="WTC11-derived microglia: Untreated vs IFNβ-treated")
+WTC11_volcano_plot
+```
+```{r}
+H1_results_HGNC <- convert_ncbi_to_hgnc(H1_results)
+```
+```{r}
+H1_volcano_plot <- create_volcano_plot(H1_results_HGNC, title="H1-derived microglia: Untreated vs IFNβ-treated")
+H1_volcano_plot
+```
+
+#PCA
+```{r}
+ifnb_filtered_metadata <- filter_metadata(ifnb_metadata,'title','group:ch1',n=8, exclude_row = "GSM6255119")
+ifnb_filtered_count_matrix <- filter_non_zero(ifnb_count_matrix,n=2,start=1,end=7)
+pca_plot <- perform_pca_plot(ifnb_filtered_count_matrix, ifnb_filtered_metadata)
+pca_plot
+```
+
+# GSEA
+```{r}
+WTC11_gsea_plot <- perform_gsea_plot(WTC11_results,'h.all.v2024.1.Hs.entrez.gmt')
+WTC11_gsea_plot
+```
+
+```{r}
+H1_gsea_plot <- perform_gsea_plot(H1_results,'h.all.v2024.1.Hs.entrez.gmt')
+H1_gsea_plot
+```
+
+
+
+
+
+
+
+
+## CRE Gene Mapping 
+
+# Get the mapped bed files 
+```{r}
+WTC11_closest_results <- read.table("../Gene_Mapping/results/WTC11.closest.bed", header=FALSE, sep = '\t')
+colnames(WTC11_closest_results) <- c("CRE_chr", "CRE_start", "CRE_end", "CRE_log2FC", 
+                                "TSS_chr", "TSS_start", "TSS_end", "TSS_strand", 
+                                "Gene_name", "Gene_ID", "Gene_start", "Gene_end", "Distance")
+
+```
+```{r}
+H1_closest_results <- read.table("../Gene_Mapping/results/H1.closest.bed", header=FALSE, sep = '\t')
+colnames(H1_closest_results) <- c("CRE_chr", "CRE_start", "CRE_end", "CRE_log2FC", 
+                                "TSS_chr", "TSS_start", "TSS_end", "TSS_strand", 
+                                "Gene_name", "Gene_ID", "Gene_start", "Gene_end", "Distance")
+```
+
+# Group mapped cres based on gene, compute average creLog2FC, choose the row with the max creLogFC as the representative, then replace its creLogFC with the computed average
+```{r}
+avg_log2FC_per_gene <- WTC11_closest_results %>%
+  group_by(Gene_name) %>%
+  summarise(avg_log2FC = mean(CRE_log2FC, na.rm = TRUE), .groups = "drop")
+
+WTC11_avg_cre <- WTC11_closest_results %>%
+  group_by(Gene_name) %>%
+  slice_max(order_by = abs(CRE_log2FC), n = 1, with_ties = FALSE) %>%
+  ungroup()
+```
+```{r}
+WTC11_avg_cre$log2FC <- avg_log2FC_per_gene$avg_log2FC[match(WTC11_avg_cre$Gene_name, avg_log2FC_per_gene$Gene_name)]
+```
+
+```{r}
+H1_avg_log2FC_per_gene <- H1_closest_results %>%
+  group_by(Gene_name) %>%
+  summarise(avg_log2FC = mean(CRE_log2FC, na.rm = TRUE), .groups = "drop")
+H1_avg_cre <- H1_closest_results %>%
+  group_by(Gene_name) %>%
+  slice_max(order_by = abs(CRE_log2FC), n = 1, with_ties = FALSE) %>%
+  ungroup()
+H1_avg_cre$log2FC <- H1_avg_log2FC_per_gene$avg_log2FC[match(H1_avg_cre$Gene_name, H1_avg_log2FC_per_gene$Gene_name)]
+```
+
+
+# Remove version in ensembl id and convert to entrez id
+```{r}
+WTC11_avg_cre$Gene_ID <- gsub("\\..*", "", WTC11_avg_cre$Gene_ID)
+```
+```{r}
+H1_avg_cre$Gene_ID <- gsub("\\..*", "", H1_avg_cre$Gene_ID)
+```
+
+# Convert entrez id to ensembl ids
+```{r}
+WTC11_results <- WTC11_results %>%
+  rownames_to_column(var='entrez_id')
+```
+```{r}
+WTC11_results_Ensembl <- convert_entrez_to_ensembl(WTC11_results, 'entrez_id')
+```
+```{r}
+WTC11_results_Ensembl <- WTC11_results_Ensembl[!is.na(WTC11_results_Ensembl$ensembl_gene_id), ]
+```
+```{r}
+H1_results <- H1_results %>%
+  rownames_to_column(var='entrez_id')
+H1_results_Ensembl <- convert_entrez_to_ensembl(H1_results, 'entrez_id')
+H1_results_Ensembl <- H1_results_Ensembl[!is.na(H1_results_Ensembl$ensembl_gene_id), ]
+```
+
+# Merge cre mapping results and dea results based on ensembl ids
+```{r}
+WTC11_merged <- merge(WTC11_avg_cre, WTC11_results_Ensembl, by.x = "Gene_ID", by.y = "ensembl_gene_id")
+```
+```{r}
+H1_merged <- merge(H1_avg_cre, H1_results_Ensembl, by.x = "Gene_ID", by.y = "ensembl_gene_id")
+```
+
+
+# WTC11 CRE_Log2FC vs log2FC plot
+```{r}
+ggplot(WTC11_merged, aes(x = CRE_log2FC, y = log2FC)) +
+  geom_point(aes(color = CRE_log2FC), size = 2, alpha = 0.6) +  # Plot points with color based on CRE_log2FC
+  labs(
+    title = "WTC11 CRE log2FC vs. log2FC",
+    x = "CRE log2FC",
+    y = "log2FC"
+  ) +
+  theme_minimal() +  # Clean minimal theme
+  theme(
+    plot.title = element_text(hjust = 0.5),  # Center the title
+    axis.title = element_text(size = 12),  # Axis title size
+    axis.text = element_text(size = 10)  # Axis text size
+  )
+```
+# H1 CRE_Log2FC vs log2FC plot
+```{r}
+ggplot(H1_merged, aes(x = CRE_log2FC, y = log2FC)) +
+  geom_point(aes(color = CRE_log2FC), size = 2, alpha = 0.6) +  # Plot points with color based on CRE_log2FC
+  labs(
+    title = "H1 CRE log2FC vs. log2FC",
+    x = "CRE log2FC",
+    y = "log2FC"
+  ) +
+  theme_minimal() +  # Clean minimal theme
+  theme(
+    plot.title = element_text(hjust = 0.5),  # Center the title
+    axis.title = element_text(size = 12),  # Axis title size
+    axis.text = element_text(size = 10)  # Axis text size
+  )
+```
+
+
+## CRE gsea analysis 
+
+# WTC11 GSEA based on rank of CRE against MSigDB C3
+```{r}
+WTC11_regulatory_gsea <- regulatory_gsea_plot(WTC11_avg_cre, 'c3.tft.tft_legacy.v2024.1.Hs.symbols.gmt')
+WTC11_regulatory_gsea
+```
+```{r}
+H1_regulatory_gsea <- regulatory_gsea_plot(H1_avg_cre, 'c3.tft.tft_legacy.v2024.1.Hs.symbols.gmt')
+H1_regulatory_gsea
+```
