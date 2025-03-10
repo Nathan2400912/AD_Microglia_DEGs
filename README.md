@@ -16,6 +16,7 @@ This project integrates multi-omics data—including differential gene expressio
 📁 **DEA/** – Contains R scripts for differential expression analysis (DEA) and multi-omics integration
 - Differential_Expression_Analysis.Rmd – R Markdown file for RNA-seq differential expression and ATAC-seq integration
 - functions.R – Custom functions used for analysis
+
 📁 **Gene_Mapping/** – ATAC-seq/epigenetic analysis and mapping
 - Nextflow pipeline: Includes common Nextflow directories and configuration files
   - main.nf – Main pipeline script
