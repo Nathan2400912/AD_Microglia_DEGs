@@ -13,18 +13,18 @@ This project integrates multi-omics data—including differential gene expressio
 
 ## Repo Structure 
 
-📁 **DEA/** – Contains R scripts for differential expression analysis (DEA) and multi-omics integration
+**DEA/** – Contains R scripts for differential expression analysis (DEA) and multi-omics integration
 - Differential_Expression_Analysis.Rmd – R Markdown file for RNA-seq differential expression and ATAC-seq integration
 - functions.R – Custom functions used for analysis
 
-📁 **Gene_Mapping/** – ATAC-seq/epigenetic analysis and mapping
+**Gene_Mapping/** – ATAC-seq/epigenetic analysis and mapping
 - Nextflow pipeline: Includes common Nextflow directories and configuration files
   - main.nf – Main pipeline script
   - config/ – Configuration files for pipeline execution
   - modules/ – Nextflow modules for ATAC-seq and mapping steps
 
 ## Data Availability
-⚠️ Note: Due to ongoing research and pending publication, data and result files are not included in this repository.
+**Note**: Due to ongoing research and pending publication, data and result files are not included in this repository at this point.
 
 ## Future Work
 - Expand the analysis to additional Alzheimer’s disease risk factors.
