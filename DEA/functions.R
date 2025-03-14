@@ -322,11 +322,11 @@ regulatory_gsea_plot <- function(res_dataframe, geneset_file, min_size = 15, max
   
   # Rank genes based on log2FoldChange from DESeq2 results
   ranked_genes <- res_dataframe %>%
-    filter(!is.na(CRE_log2FC)) %>%
-    arrange(desc(CRE_log2FC)) %>%
-    dplyr::select(Gene_name, CRE_log2FC)
+    filter(!is.na(avg_CRE_log2FC)) %>%
+    arrange(desc(avg_CRE_log2FC)) %>%
+    dplyr::select(Gene_ID, avg_CRE_log2FC)
   
-  rank <- setNames(ranked_genes$CRE_log2FC, ranked_genes$Gene_name)
+  rank <- setNames(ranked_genes$avg_CRE_log2FC, ranked_genes$Gene_ID)
   
   # Run fgsea
   fgsea_res <- fgsea(
@@ -363,7 +363,7 @@ regulatory_gsea_plot <- function(res_dataframe, geneset_file, min_size = 15, max
     coord_flip() +
     scale_fill_manual(
       values = c('positive' = '#FF8282', 'negative' = '#0072B2'),
-      labels = c('Negative NES', 'Positive NES'),
+      labels = c('Positive NES', 'Negative NES'),
       name = "Direction"
     ) +
     labs(
